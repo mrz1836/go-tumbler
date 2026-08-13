@@ -1,0 +1,13 @@
+# Local workspace files (never committed — module is consumed via go.mod once released)
+go.work
+go.work.sum
+
+# Build artifacts
+/dist/
+*.test
+*.out
+coverage.txt
+coverage.html
+
+# OS/editor cruft
+.DS_Store
