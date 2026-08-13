@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -127,6 +128,34 @@ func TestChallengeResponse_InvalidSlot(t *testing.T) {
 
 func TestChallengeResponse_BadOutput(t *testing.T) {
 	tr := &YkmanTransport{path: "/x/ykman", run: fixedRunner(runResult{stdout: []byte("nope")})}
+	_, err := tr.ChallengeResponse(context.Background(), 2, []byte("challenge"))
+	assert.ErrorIs(t, err, ErrBadResponse)
+}
+
+func TestChallengeResponse_TolerantOutput(t *testing.T) {
+	lower := string(respHex())
+	upper := strings.ToUpper(lower)
+
+	cases := map[string]string{
+		"plain lowercase":    lower,
+		"uppercase":          upper,
+		"trailing newline":   lower + "\n",
+		"surrounded by text": "Touch your YubiKey...\n" + upper + "\nDone.\n",
+	}
+	for name, stdout := range cases {
+		t.Run(name, func(t *testing.T) {
+			tr := &YkmanTransport{path: "/x/ykman", run: fixedRunner(runResult{stdout: []byte(stdout)})}
+			sb, err := tr.ChallengeResponse(context.Background(), 2, []byte("challenge"))
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = sb.Destroy() })
+			assert.Equal(t, 20, sb.Len())
+		})
+	}
+}
+
+func TestChallengeResponse_AmbiguousOutputRejected(t *testing.T) {
+	two := string(respHex()) + " " + string(respHex())
+	tr := &YkmanTransport{path: "/x/ykman", run: fixedRunner(runResult{stdout: []byte(two)})}
 	_, err := tr.ChallengeResponse(context.Background(), 2, []byte("challenge"))
 	assert.ErrorIs(t, err, ErrBadResponse)
 }

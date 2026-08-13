@@ -131,14 +131,54 @@ func (t *YkmanTransport) ChallengeResponse(ctx context.Context, slot uint8, chal
 		return nil, classifyToolError(ctx, res)
 	}
 
-	out := bytes.TrimSpace(res.stdout)
 	defer zeroBytes(res.stdout)
+	out := extractResponseHex(res.stdout)
+	if out == nil {
+		return nil, fmt.Errorf("%w: no 40-hex-char response in tool output", ErrBadResponse)
+	}
+	defer zeroBytes(out)
 	resp, err := decodeResponse(out)
 	if err != nil {
 		return nil, err
 	}
 	defer zeroBytes(resp)
 	return securebytes.New(resp)
+}
+
+// extractResponseHex normalizes ykman stdout to a canonical 40-char
+// lowercase-hex response. It accepts the response alone, in upper or lower
+// case, or as one whitespace-separated token amid incidental surrounding
+// output — so minor differences in ykman's output shape across versions do not
+// break unlock. It returns nil if there is no unambiguous 40-hex token (zero,
+// or more than one). The exact output shape is still pinned by a hardware KAT.
+func extractResponseHex(stdout []byte) []byte {
+	if trimmed := bytes.TrimSpace(stdout); isHex40(trimmed) {
+		return bytes.ToLower(trimmed)
+	}
+	var found []byte
+	for _, tok := range bytes.Fields(stdout) {
+		if !isHex40(tok) {
+			continue
+		}
+		if found != nil {
+			return nil // ambiguous — refuse to guess
+		}
+		found = bytes.ToLower(tok)
+	}
+	return found
+}
+
+// isHex40 reports whether b is exactly 40 hex characters (either case).
+func isHex40(b []byte) bool {
+	if len(b) != responseHexLen {
+		return false
+	}
+	for _, c := range b {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') {
+			return false
+		}
+	}
+	return true
 }
 
 // Serial implements Transport via `ykman list --serials`.
