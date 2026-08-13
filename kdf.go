@@ -168,13 +168,15 @@ func (k *ScryptKDF) Derive(password *securebytes.SecureBytes, salt []byte) (*sec
 // parseKDF reconstructs a KDF from a slot's stored KDFID and parameter bytes,
 // enforcing safety bounds before returning. A KDFNone id returns (nil, nil):
 // the caller (recovery method) applies no password stretch.
+//
+//nolint:gocognit,gocyclo // flat per-KDF validation switch; complexity is structural.
 func parseKDF(id KDFID, params []byte) (KDF, error) {
 	switch id {
 	case KDFNone:
 		if len(params) != 0 {
 			return nil, fmt.Errorf("%w: none takes no params", ErrKDFParams)
 		}
-		return nil, nil
+		return nil, nil //nolint:nilnil // KDFNone legitimately means 'no KDF applied' (recovery slots).
 
 	case KDFArgon2id:
 		if len(params) != kdfParamsLenArgon2 {

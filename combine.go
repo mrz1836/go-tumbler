@@ -75,7 +75,7 @@ func buildIKM(in ikmInputs) (*securebytes.SecureBytes, error) {
 			dst[n] = 1
 			n++
 			if e := r.Use(func(s []byte) {
-				binary.BigEndian.PutUint16(dst[n:], uint16(len(s)))
+				binary.BigEndian.PutUint16(dst[n:], uint16(len(s))) //nolint:gosec // G115: role secrets are <=64 bytes, well under uint16
 				n += 2
 				n += copy(dst[n:], s)
 			}); e != nil {

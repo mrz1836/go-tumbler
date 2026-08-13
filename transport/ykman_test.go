@@ -26,10 +26,10 @@ func respHex() []byte {
 
 func TestParseYkmanVersion(t *testing.T) {
 	cases := map[string][3]int{
-		"5.9.2":                               {5, 9, 2},
+		"5.9.2":                                  {5, 9, 2},
 		"YubiKey Manager (ykman) version: 5.9.2": {5, 9, 2},
-		"ykman 5.10.0 built with love":        {5, 10, 0},
-		"12.0.3\n":                             {12, 0, 3},
+		"ykman 5.10.0 built with love":           {5, 10, 0},
+		"12.0.3\n":                               {12, 0, 3},
 	}
 	for in, want := range cases {
 		got, err := parseYkmanVersion(in)
@@ -79,7 +79,7 @@ func TestDecodeResponse(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestClassifyToolError(t *testing.T) {
-	t.Run("context cancelled -> touch timeout", func(t *testing.T) {
+	t.Run("context canceled -> touch timeout", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 		err := classifyToolError(ctx, runResult{err: exec.ErrNotFound})

@@ -18,6 +18,9 @@ import (
 // is rejected (ErrToolVersion).
 var minYkmanVersion = [3]int{5, 0, 0} //nolint:gochecknoglobals // pinned floor; immutable
 
+// errNoVersion is returned by parseYkmanVersion when no x.y.z is present.
+var errNoVersion = errors.New("tumbler/transport: no x.y.z version in ykman output")
+
 // runResult is the structured outcome of one command invocation, so error
 // classification is deterministic and unit-testable without hardware.
 type runResult struct {
@@ -81,7 +84,7 @@ func resolveToolPath(path string) (string, error) {
 	}
 	abs, err := exec.LookPath(path)
 	if err != nil {
-		return "", fmt.Errorf("%w: %q: %v", ErrToolNotFound, path, err)
+		return "", fmt.Errorf("%w: %q: %w", ErrToolNotFound, path, err)
 	}
 	return abs, nil
 }
@@ -90,11 +93,11 @@ func resolveToolPath(path string) (string, error) {
 func (t *YkmanTransport) checkVersion(ctx context.Context) error {
 	res := t.run(ctx, t.path, []string{"--version"})
 	if res.err != nil {
-		return fmt.Errorf("%w: version probe: %v", ErrToolFailure, res.err)
+		return fmt.Errorf("%w: version probe: %w", ErrToolFailure, res.err)
 	}
 	v, err := parseYkmanVersion(string(res.stdout))
 	if err != nil {
-		return fmt.Errorf("%w: %v", ErrToolVersion, err)
+		return fmt.Errorf("%w: %w", ErrToolVersion, err)
 	}
 	if versionLess(v, minYkmanVersion) {
 		return fmt.Errorf("%w: found %d.%d.%d, need >= %d.%d.%d",
@@ -168,13 +171,13 @@ func decodeResponse(out []byte) ([]byte, error) {
 		return nil, fmt.Errorf("%w: length %d", ErrBadResponse, len(out))
 	}
 	for _, c := range out {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
 			return nil, fmt.Errorf("%w: non-lowercase-hex byte", ErrBadResponse)
 		}
 	}
 	resp := make([]byte, hex.DecodedLen(len(out)))
 	if _, err := hex.Decode(resp, out); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrBadResponse, err)
+		return nil, fmt.Errorf("%w: %w", ErrBadResponse, err)
 	}
 	return resp, nil
 }
@@ -184,11 +187,11 @@ func decodeResponse(out []byte) ([]byte, error) {
 // requiring hardware verification against the pinned ykman version.
 func classifyToolError(ctx context.Context, res runResult) error {
 	if ctx.Err() != nil {
-		return fmt.Errorf("%w: %v", ErrTouchTimeout, ctx.Err())
+		return fmt.Errorf("%w: %w", ErrTouchTimeout, ctx.Err())
 	}
 	var execErr *exec.Error
 	if errors.As(res.err, &execErr) {
-		return fmt.Errorf("%w: %v", ErrToolNotFound, res.err)
+		return fmt.Errorf("%w: %w", ErrToolNotFound, res.err)
 	}
 	stderr := strings.ToLower(string(res.stderr))
 	switch {
@@ -207,7 +210,7 @@ func classifyToolError(ctx context.Context, res runResult) error {
 func parseYkmanVersion(s string) ([3]int, error) {
 	var v [3]int
 	fields := strings.FieldsFunc(s, func(r rune) bool {
-		return !(r >= '0' && r <= '9') && r != '.'
+		return (r < '0' || r > '9') && r != '.'
 	})
 	for _, f := range fields {
 		parts := strings.Split(f, ".")
@@ -222,7 +225,7 @@ func parseYkmanVersion(s string) ([3]int, error) {
 			return v, nil
 		}
 	}
-	return v, fmt.Errorf("no x.y.z version in %q", strings.TrimSpace(s))
+	return v, fmt.Errorf("%w: %q", errNoVersion, strings.TrimSpace(s))
 }
 
 // versionLess reports whether a < b.
@@ -237,7 +240,7 @@ func versionLess(a, b [3]int) bool {
 
 // defaultRunner is the production commandRunner using exec.CommandContext.
 func defaultRunner(ctx context.Context, name string, args []string) runResult {
-	cmd := exec.CommandContext(ctx, name, args...)
+	cmd := exec.CommandContext(ctx, name, args...) //nolint:gosec // G204: name is an absolute, version-pinned ykman path; args are a fixed, non-shell argv
 	var out, errBuf bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &errBuf

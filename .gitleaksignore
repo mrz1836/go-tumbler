@@ -1,0 +1,3 @@
+# The golden envelope is an intentional test fixture (wrapped random test key),
+# not a real secret. Same for any KAT blobs under testdata/.
+testdata/golden_v1.tmbl

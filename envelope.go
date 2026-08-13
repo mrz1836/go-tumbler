@@ -296,7 +296,7 @@ func (e *Envelope) Marshal() ([]byte, error) {
 	out := make([]byte, 0, headerLen+len(e.slots)*128)
 	out = append(out, magic[:]...)
 	out = append(out, e.version, byte(e.policyHint))
-	out = binary.BigEndian.AppendUint16(out, uint16(len(e.slots)))
+	out = binary.BigEndian.AppendUint16(out, uint16(len(e.slots))) //nolint:gosec // G115: slot count is bounded by maxSlotCount (64)
 
 	for i := range e.slots {
 		s := &e.slots[i]
@@ -314,7 +314,7 @@ func (e *Envelope) Marshal() ([]byte, error) {
 		body := make([]byte, 0, len(meta)+len(s.Wrapped))
 		body = append(body, meta...)
 		body = append(body, s.Wrapped...)
-		out = binary.BigEndian.AppendUint32(out, uint32(len(body)))
+		out = binary.BigEndian.AppendUint32(out, uint32(len(body))) //nolint:gosec // G115: body length is bounded by maxEnvelopeLen
 		out = append(out, body...)
 		if len(out) > maxEnvelopeLen {
 			return nil, fmt.Errorf("%w: envelope exceeds %d", ErrMalformed, maxEnvelopeLen)
@@ -325,7 +325,7 @@ func (e *Envelope) Marshal() ([]byte, error) {
 
 // appendU16Bytes appends a uint16 length prefix followed by b.
 func appendU16Bytes(dst, b []byte) []byte {
-	dst = binary.BigEndian.AppendUint16(dst, uint16(len(b)))
+	dst = binary.BigEndian.AppendUint16(dst, uint16(len(b))) //nolint:gosec // G115: field lengths are validated <= their max in marshalMeta
 	return append(dst, b...)
 }
 
@@ -394,8 +394,6 @@ func (r *reader) takeU16(maxLen int) ([]byte, error) {
 // ParseEnvelope validates and decodes an envelope. It performs only
 // structural and bounds checks — no cryptography — and rejects anything
 // malformed with ErrBadMagic / ErrBadVersion / ErrShortData / ErrMalformed.
-//
-//nolint:gocyclo // sequential, bounded header/slot parser; complexity is structural.
 func ParseEnvelope(b []byte) (*Envelope, error) {
 	if len(b) > maxEnvelopeLen {
 		return nil, fmt.Errorf("%w: %d bytes", ErrMalformed, len(b))

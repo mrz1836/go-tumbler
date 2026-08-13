@@ -112,7 +112,7 @@ func ParseRecoveryCode(s string) (*securebytes.SecureBytes, error) {
 
 	raw, err := recoveryEncoding.DecodeString(cleaned)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidRecoveryCode, err)
+		return nil, fmt.Errorf("%w: %w", ErrInvalidRecoveryCode, err)
 	}
 	defer zero(raw)
 	if len(raw) != RecoveryCodeLen {

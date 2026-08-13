@@ -123,13 +123,13 @@ func TestParseKDF_Argon2Bounds(t *testing.T) {
 
 func TestParseKDF_ScryptBounds(t *testing.T) {
 	cases := map[string][]byte{
-		"wrong length":  {1, 2, 3},
-		"logN zero":     scryptParams(0, 8, 1),
-		"logN too high": scryptParams(23, 8, 1),
-		"r zero":        scryptParams(14, 0, 1),
-		"r too big":     scryptParams(14, 33, 1),
-		"p zero":        scryptParams(14, 8, 0),
-		"p too big":     scryptParams(14, 8, 17),
+		"wrong length":   {1, 2, 3},
+		"logN zero":      scryptParams(0, 8, 1),
+		"logN too high":  scryptParams(23, 8, 1),
+		"r zero":         scryptParams(14, 0, 1),
+		"r too big":      scryptParams(14, 33, 1),
+		"p zero":         scryptParams(14, 8, 0),
+		"p too big":      scryptParams(14, 8, 17),
 		"memory too big": scryptParams(22, 32, 1), // 128*2^22*32 = 16 GiB > ceiling
 	}
 	for name, params := range cases {
