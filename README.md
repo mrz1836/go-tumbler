@@ -9,7 +9,7 @@
 <a href="https://github.com/mrz1836/go-tumbler/releases"><img src="https://img.shields.io/github/release-pre/mrz1836/go-tumbler?include_prereleases&style=flat-square&logo=github&color=black" alt="Release"></a>
 <a href="https://golang.org/"><img src="https://img.shields.io/github/go-mod/go-version/mrz1836/go-tumbler?style=flat-square&logo=go&color=00ADD8" alt="Go Version"></a>
 <a href="https://pkg.go.dev/github.com/mrz1836/go-tumbler"><img src="https://pkg.go.dev/badge/github.com/mrz1836/go-tumbler.svg" alt="Go Reference"></a>
-<a href="https://github.com/mrz1836/go-tumbler/blob/master/LICENSE"><img src="https://img.shields.io/github/license/mrz1836/go-tumbler?style=flat-square&color=blue&v=2" alt="License"></a>
+<a href="https://github.com/mrz1836/go-tumbler/blob/master/LICENSE"><img src="https://img.shields.io/github/license/mrz1836/go-tumbler?style=flat-square&color=blue&v=1" alt="License"></a>
 
 <br/>
 
@@ -483,4 +483,4 @@ or by making a [**bitcoin donation**](https://mrz1818.com/?tab=tips&utm_source=g
 
 ## 📝 License
 
-[![License](https://img.shields.io/github/license/mrz1836/go-tumbler.svg?style=flat&v=2)](LICENSE)
+[![License](https://img.shields.io/github/license/mrz1836/go-tumbler.svg?style=flat&v=1)](LICENSE)
