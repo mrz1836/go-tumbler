@@ -259,7 +259,7 @@ A single random **data key (DEK)** seals the payload once. Every enrolled unlock
    YubiKey  ─▶ CR  ─┤    │  │ slot: pw  │  │ slot: 2FA │  │ slot: key │  │ slot: rec │ ··· │
                     │    │  │ wraps DEK │  │ wraps DEK │  │ wraps DEK │  │ wraps DEK │     │
    recovery ────────┘    │  └───────────┘  └───────────┘  └───────────┘  └───────────┘     │
-                         └────────────────────────────────────────────────────────────────┘
+                         └─────────────────────────────────────────────────────────────────┘
                                      any one slot ─▶ DEK ─▶ decrypt payload
 ```
 
