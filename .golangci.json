@@ -1,0 +1,132 @@
+{
+    "version": "2",
+    "formatters": {
+        "enable": [
+            "gofmt",
+            "gofumpt"
+        ],
+        "settings": {
+            "gci": {
+                "sections": [
+                    "standard",
+                    "default",
+                    "prefix(github.com/mrz1836/go-tumbler)"
+                ]
+            },
+            "gofmt": {
+                "simplify": true
+            },
+            "gofumpt": {
+                "extra-rules": false,
+                "module-path": "github.com/mrz1836/go-tumbler"
+            },
+            "goimports": {
+                "local-prefixes": [
+                    "github.com/mrz1836/go-tumbler"
+                ]
+            }
+        }
+    },
+    "issues": {
+        "uniq-by-line": true
+    },
+    "linters": {
+        "exclusions": {
+            "rules": [
+                {
+                    "path": "_test\\.go",
+                    "linters": [
+                        "err113",
+                        "gochecknoglobals",
+                        "gocognit",
+                        "gocyclo",
+                        "gosec",
+                        "containedctx",
+                        "dupl",
+                        "staticcheck",
+                        "testifylint"
+                    ]
+                }
+            ]
+        },
+        "disable": [
+            "funcorder",
+            "goconst",
+            "gocritic",
+            "godot",
+            "godox",
+            "wsl_v5"
+        ],
+        "enable": [
+            "asasalint",
+            "asciicheck",
+            "bidichk",
+            "bodyclose",
+            "containedctx",
+            "contextcheck",
+            "copyloopvar",
+            "dogsled",
+            "durationcheck",
+            "err113",
+            "errcheck",
+            "errchkjson",
+            "errname",
+            "errorlint",
+            "exhaustive",
+            "gochecknoglobals",
+            "gochecknoinits",
+            "gocognit",
+            "gocyclo",
+            "gosec",
+            "govet",
+            "ineffassign",
+            "intrange",
+            "makezero",
+            "misspell",
+            "nakedret",
+            "nestif",
+            "nilerr",
+            "nilnil",
+            "nolintlint",
+            "prealloc",
+            "predeclared",
+            "reassign",
+            "revive",
+            "staticcheck",
+            "testifylint",
+            "unconvert",
+            "unparam",
+            "unused",
+            "usestdlibvars",
+            "wastedassign"
+        ],
+        "settings": {
+            "exhaustive": {
+                "default-signifies-exhaustive": true
+            },
+            "gocognit": {
+                "min-complexity": 20
+            },
+            "gocyclo": {
+                "min-complexity": 15
+            },
+            "govet": {
+                "enable": [
+                    "shadow"
+                ]
+            },
+            "misspell": {
+                "locale": "US"
+            },
+            "nolintlint": {
+                "allow-unused": false,
+                "require-explanation": true,
+                "require-specific": true
+            }
+        }
+    },
+    "run": {
+        "issues-exit-code": 1,
+        "tests": true
+    }
+}
