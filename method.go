@@ -12,7 +12,8 @@ type Option func(*methodOptions)
 
 // methodOptions holds the resolved optional settings shared by all methods.
 type methodOptions struct {
-	label []byte
+	label         []byte
+	touchAnnounce func()
 }
 
 // WithLabel attaches a short, non-secret human label to a slot (e.g.
@@ -20,6 +21,15 @@ type methodOptions struct {
 // by — the slot and surface via Envelope.SlotInfos.
 func WithLabel(label string) Option {
 	return func(o *methodOptions) { o.label = []byte(label) }
+}
+
+// WithTouchAnnounce registers a callback invoked immediately before the
+// YubiKey is asked for a response — i.e. at the exact moment the key begins
+// blinking for a touch. Apps use it to print a "touch your key now" prompt at
+// the right moment (after any password prompt and key derivation), rather than
+// too early. It is a no-op for non-YubiKey methods.
+func WithTouchAnnounce(fn func()) Option {
+	return func(o *methodOptions) { o.touchAnnounce = fn }
 }
 
 // applyOptions resolves opts, falling back to the supplied default label.

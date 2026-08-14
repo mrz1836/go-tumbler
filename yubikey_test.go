@@ -50,6 +50,30 @@ func TestYubiKeyOnly_RoundTrip(t *testing.T) {
 	assert.Equal(t, 2, fake.Touches, "unlock should require one more touch")
 }
 
+func TestYubiKey_TouchAnnounce_FiresRightBeforeTouch(t *testing.T) {
+	ctx := context.Background()
+	dek, _ := makeDEK(t, 32)
+	fake := newFake()
+
+	var order []string
+	fake.TouchFn = func() error { order = append(order, "touch"); return nil }
+	announce := func() { order = append(order, "announce") }
+
+	// Enroll: the announcement must immediately precede the touch.
+	env, err := tumbler.NewEnvelope(ctx, dek, tumbler.PolicyYubiKeyOnly,
+		tumbler.NewYubiKeyMethod(fake, tumbler.YubiKeyConfig{Slot: 2}, nil, tumbler.WithTouchAnnounce(announce)))
+	require.NoError(t, err)
+	assert.Equal(t, []string{"announce", "touch"}, order)
+
+	// Unlock: same ordering.
+	order = nil
+	got, err := env.Unlock(ctx,
+		tumbler.NewYubiKeyMethod(fake, tumbler.YubiKeyConfig{Slot: 2}, nil, tumbler.WithTouchAnnounce(announce)))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = got.Destroy() })
+	assert.Equal(t, []string{"announce", "touch"}, order)
+}
+
 func TestYubiKeyOnly_WrongKey_AuthFailed(t *testing.T) {
 	ctx := context.Background()
 	dek, _ := makeDEK(t, 32)

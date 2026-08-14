@@ -38,6 +38,7 @@ type YubiKeyMethod struct {
 	cfg       YubiKeyConfig
 	password  *securebytes.SecureBytes // nil => yubi-only; set => 2FA
 	label     []byte
+	onTouch   func() // announced immediately before each touch (WithTouchAnnounce)
 }
 
 // NewYubiKeyMethod builds a YubiKey method. Pass password=nil for yubi-only,
@@ -49,7 +50,15 @@ func NewYubiKeyMethod(t transport.Transport, cfg YubiKeyConfig, password *secure
 		label = "password+yubikey"
 	}
 	o := applyOptions(label, opts)
-	return &YubiKeyMethod{transport: t, cfg: cfg, password: password, label: o.label}
+	return &YubiKeyMethod{transport: t, cfg: cfg, password: password, label: o.label, onTouch: o.touchAnnounce}
+}
+
+// announceTouch fires the touch callback (if any) right before the key is
+// asked for a response — the moment it starts blinking.
+func (m *YubiKeyMethod) announceTouch() {
+	if m.onTouch != nil {
+		m.onTouch()
+	}
 }
 
 // Type implements Method.
@@ -79,6 +88,7 @@ func (m *YubiKeyMethod) enrollYubiOnly(ctx context.Context, dek *securebytes.Sec
 	if err != nil {
 		return Slot{}, err
 	}
+	m.announceTouch()
 	yr, err := m.transport.ChallengeResponse(ctx, m.cfg.Slot, challenge)
 	if err != nil {
 		return Slot{}, err
@@ -118,6 +128,7 @@ func (m *YubiKeyMethod) enroll2FA(ctx context.Context, dek *securebytes.SecureBy
 	}
 	defer zero(challenge)
 
+	m.announceTouch()
 	yr, err := m.transport.ChallengeResponse(ctx, m.cfg.Slot, challenge)
 	if err != nil {
 		return Slot{}, err
@@ -152,6 +163,7 @@ func (m *YubiKeyMethod) Unlock(ctx context.Context, slot Slot) (*securebytes.Sec
 }
 
 func (m *YubiKeyMethod) unlockYubiOnly(ctx context.Context, slot Slot) (*securebytes.SecureBytes, error) {
+	m.announceTouch()
 	yr, err := m.transport.ChallengeResponse(ctx, slot.YKSlot, slot.Challenge)
 	if err != nil {
 		return nil, err
@@ -180,6 +192,7 @@ func (m *YubiKeyMethod) unlock2FA(ctx context.Context, slot Slot) (*securebytes.
 	}
 	defer zero(challenge)
 
+	m.announceTouch()
 	yr, err := m.transport.ChallengeResponse(ctx, slot.YKSlot, challenge)
 	if err != nil {
 		return nil, err
