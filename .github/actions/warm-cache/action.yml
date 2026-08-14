@@ -70,8 +70,23 @@ runs:
         ENV_JSON: ${{ inputs.env-json }}
       run: |
         echo "📋 Setting environment variables..."
-        echo "$ENV_JSON" | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' | while IFS='=' read -r key value; do
-          echo "$key=$value" >> $GITHUB_ENV
+        # Harden $GITHUB_ENV writes (defense-in-depth): base64 the value so newlines and
+        # special chars can't corrupt the read loop; accept only valid env-var names and
+        # reject values with an embedded newline (which could inject arbitrary extra vars).
+        # base64's decode flag differs by platform (GNU: -d, BSD/macOS: -D) — detect it.
+        if printf '' | base64 -d >/dev/null 2>&1; then B64D=-d; else B64D=-D; fi
+        echo "$ENV_JSON" | jq -r 'to_entries[] | .key, (.value | tostring | @base64)' | while IFS= read -r key; do
+          IFS= read -r value_b64
+          if [[ ! "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+            echo "⚠️ Skipping invalid env var name: $key" >&2
+            continue
+          fi
+          value=$(printf '%s' "$value_b64" | base64 "$B64D")
+          if [[ "$value" == *$'\n'* ]]; then
+            echo "⚠️ Skipping $key: value contains a newline" >&2
+            continue
+          fi
+          printf '%s=%s\n' "$key" "$value" >> "$GITHUB_ENV"
         done
 
     # --------------------------------------------------------------------
@@ -267,7 +282,7 @@ runs:
     # ────────────────────────────────────────────────────────────────────────────
     - name: 📥 Full checkout for module download (module cache miss)
       if: steps.setup-go.outputs.module-cache-hit != 'true'
-      uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         persist-credentials: false
 
@@ -306,7 +321,7 @@ runs:
     # ────────────────────────────────────────────────────────────────────────────
     - name: 📥 Full checkout for build warming (module hit, build miss)
       if: steps.setup-go.outputs.module-cache-hit == 'true' && steps.setup-go.outputs.build-cache-hit != 'true'
-      uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         persist-credentials: false
 
