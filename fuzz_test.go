@@ -119,3 +119,56 @@ func FuzzEnrollUnlockRoundTrip(f *testing.F) {
 		}
 	})
 }
+
+// FuzzParseRecoveryCode asserts ParseRecoveryCode never panics on arbitrary
+// input and that any code it accepts is exactly RecoveryCodeLen bytes.
+func FuzzParseRecoveryCode(f *testing.F) {
+	f.Add("ABCD-EFGH-IJKL")
+	f.Add("")
+	f.Add("11111111")        // '1' is not in the base32 alphabet
+	f.Add("aa bb cc  dd - ") // messy separators / casing
+	if code, err := tumbler.GenerateRecoveryCode(); err == nil {
+		if printed, fErr := tumbler.FormatRecoveryCode(code); fErr == nil {
+			f.Add(printed)
+		}
+		_ = code.Destroy()
+	}
+
+	f.Fuzz(func(t *testing.T, s string) {
+		sb, err := tumbler.ParseRecoveryCode(s)
+		if err != nil {
+			return // rejecting malformed input is the expected outcome
+		}
+		if sb.Len() != tumbler.RecoveryCodeLen {
+			t.Fatalf("accepted code of wrong length %d", sb.Len())
+		}
+		_ = sb.Destroy()
+	})
+}
+
+// FuzzParseKDFParams asserts parseKDF never panics and that any KDF it accepts
+// round-trips its parameters stably through MarshalParams and a re-parse.
+func FuzzParseKDFParams(f *testing.F) {
+	f.Add(uint8(0), []byte{})                     // KDFNone
+	f.Add(uint8(1), argonParams(4, 256*1024, 4))  // argon2 (hush)
+	f.Add(uint8(2), scryptParams(18, 8, 1))       // scrypt (sigil)
+	f.Add(uint8(1), []byte{1, 2, 3})              // wrong-length argon2
+	f.Add(uint8(99), bytes.Repeat([]byte{1}, 16)) // unknown id
+
+	f.Fuzz(func(t *testing.T, id uint8, params []byte) {
+		kdf, err := tumbler.ParseKDFForTest(tumbler.KDFID(id), params)
+		if err != nil {
+			return
+		}
+		if kdf == nil {
+			return // KDFNone: no parameters to round-trip
+		}
+		reparsed, err := tumbler.ParseKDFForTest(kdf.ID(), kdf.MarshalParams())
+		if err != nil {
+			t.Fatalf("re-parse of accepted KDF failed: %v", err)
+		}
+		if !bytes.Equal(kdf.MarshalParams(), reparsed.MarshalParams()) {
+			t.Fatalf("KDF params not stable through re-parse")
+		}
+	})
+}

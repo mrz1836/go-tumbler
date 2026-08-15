@@ -52,6 +52,19 @@ func MarshalMetaForTest(s *Slot) ([]byte, error) { return marshalMeta(s) }
 // Meta returns the captured AAD bytes of a slot (nil until enrolled/parsed).
 func (s *Slot) Meta() []byte { return s.meta }
 
+// ClearMetaForTest returns a copy of s with its captured AAD bytes cleared, so
+// tests can exercise the meta==nil re-marshal path in unwrapDEK/Marshal that
+// only an in-memory-constructed slot reaches.
+func (s Slot) ClearMetaForTest() Slot { s.meta = nil; return s }
+
+// DeriveChallengeForTest exposes deriveChallenge for its error-path test.
+func DeriveChallengeForTest(pk *securebytes.SecureBytes, chalSalt []byte) ([]byte, error) {
+	return deriveChallenge(pk, chalSalt)
+}
+
+// GroupStringForTest exposes groupString for its short-input / n<=0 branches.
+func GroupStringForTest(s string, n int) string { return groupString(s, n) }
+
 // SlotsForTest returns a shallow copy of the envelope's slots for inspection.
 func (e *Envelope) SlotsForTest() []Slot {
 	out := make([]Slot, len(e.slots))

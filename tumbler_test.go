@@ -4,9 +4,10 @@ import (
 	"errors"
 	"testing"
 
-	tumbler "github.com/mrz1836/go-tumbler"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	tumbler "github.com/mrz1836/go-tumbler"
 )
 
 func TestGenerateDEK_Valid(t *testing.T) {
@@ -61,4 +62,5 @@ func TestPolicy_String(t *testing.T) {
 	assert.Equal(t, "password-and-yubikey", tumbler.PolicyPasswordAndYubiKey.String())
 	assert.Equal(t, "yubikey-only", tumbler.PolicyYubiKeyOnly.String())
 	assert.Equal(t, "invalid", tumbler.PolicyInvalid.String())
+	assert.Equal(t, "invalid", tumbler.Policy(99).String()) // unknown -> "invalid"
 }

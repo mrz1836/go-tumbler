@@ -26,6 +26,7 @@ func respHex() []byte {
 // ---------------------------------------------------------------------------
 
 func TestParseYkmanVersion(t *testing.T) {
+	t.Parallel()
 	cases := map[string][3]int{
 		"5.9.2":                                  {5, 9, 2},
 		"YubiKey Manager (ykman) version: 5.9.2": {5, 9, 2},
@@ -44,6 +45,7 @@ func TestParseYkmanVersion(t *testing.T) {
 }
 
 func TestVersionLess(t *testing.T) {
+	t.Parallel()
 	assert.True(t, versionLess([3]int{4, 9, 9}, [3]int{5, 0, 0}))
 	assert.True(t, versionLess([3]int{5, 0, 0}, [3]int{5, 0, 1}))
 	assert.False(t, versionLess([3]int{5, 0, 0}, [3]int{5, 0, 0}))
@@ -55,6 +57,7 @@ func TestVersionLess(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestDecodeResponse(t *testing.T) {
+	t.Parallel()
 	resp, err := decodeResponse(respHex())
 	require.NoError(t, err)
 	assert.Len(t, resp, 20)
@@ -80,6 +83,7 @@ func TestDecodeResponse(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestClassifyToolError(t *testing.T) {
+	t.Parallel()
 	t.Run("context canceled -> touch timeout", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
@@ -113,6 +117,7 @@ func TestClassifyToolError(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestChallengeResponse_Success(t *testing.T) {
+	t.Parallel()
 	tr := &YkmanTransport{path: "/x/ykman", run: fixedRunner(runResult{stdout: respHex()})}
 	sb, err := tr.ChallengeResponse(context.Background(), 2, []byte("challenge"))
 	require.NoError(t, err)
@@ -121,18 +126,21 @@ func TestChallengeResponse_Success(t *testing.T) {
 }
 
 func TestChallengeResponse_InvalidSlot(t *testing.T) {
+	t.Parallel()
 	tr := &YkmanTransport{path: "/x/ykman", run: fixedRunner(runResult{stdout: respHex()})}
 	_, err := tr.ChallengeResponse(context.Background(), 3, []byte("challenge"))
 	assert.ErrorIs(t, err, ErrSlotNotConfigured)
 }
 
 func TestChallengeResponse_BadOutput(t *testing.T) {
+	t.Parallel()
 	tr := &YkmanTransport{path: "/x/ykman", run: fixedRunner(runResult{stdout: []byte("nope")})}
 	_, err := tr.ChallengeResponse(context.Background(), 2, []byte("challenge"))
 	assert.ErrorIs(t, err, ErrBadResponse)
 }
 
 func TestChallengeResponse_TolerantOutput(t *testing.T) {
+	t.Parallel()
 	lower := string(respHex())
 	upper := strings.ToUpper(lower)
 
@@ -154,6 +162,7 @@ func TestChallengeResponse_TolerantOutput(t *testing.T) {
 }
 
 func TestChallengeResponse_AmbiguousOutputRejected(t *testing.T) {
+	t.Parallel()
 	two := string(respHex()) + " " + string(respHex())
 	tr := &YkmanTransport{path: "/x/ykman", run: fixedRunner(runResult{stdout: []byte(two)})}
 	_, err := tr.ChallengeResponse(context.Background(), 2, []byte("challenge"))
@@ -161,12 +170,14 @@ func TestChallengeResponse_AmbiguousOutputRejected(t *testing.T) {
 }
 
 func TestChallengeResponse_ToolError(t *testing.T) {
+	t.Parallel()
 	tr := &YkmanTransport{path: "/x/ykman", run: fixedRunner(runResult{err: errBoom(), stderr: []byte("No YubiKey detected")})}
 	_, err := tr.ChallengeResponse(context.Background(), 2, []byte("challenge"))
 	assert.ErrorIs(t, err, ErrNoDevice)
 }
 
 func TestChallengeResponse_ContextCancelled(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	tr := &YkmanTransport{path: "/x/ykman", run: fixedRunner(runResult{stdout: respHex()})}
@@ -174,7 +185,27 @@ func TestChallengeResponse_ContextCancelled(t *testing.T) {
 	assert.ErrorIs(t, err, context.Canceled)
 }
 
+// TestChallengeResponse_ChallengeInArgv pins Finding #1: the challenge is passed
+// as a command-line argument (hex-encoded). For a 2FA slot that challenge is a
+// secret offline password verifier, so its presence in argv is the documented
+// v1 exposure. This test will flip once the v2 PIV (no-argv-PIN) path lands.
+func TestChallengeResponse_ChallengeInArgv(t *testing.T) {
+	t.Parallel()
+	var gotArgs []string
+	rec := func(_ context.Context, _ string, args []string) runResult {
+		gotArgs = args
+		return runResult{stdout: respHex()}
+	}
+	tr := &YkmanTransport{path: "/x/ykman", run: rec}
+	challenge := []byte("secret-2fa-challenge-bytes-32byte")
+	_, err := tr.ChallengeResponse(context.Background(), 2, challenge)
+	require.NoError(t, err)
+	assert.Contains(t, gotArgs, hex.EncodeToString(challenge),
+		"the (possibly-secret) challenge currently reaches ykman argv")
+}
+
 func TestSerialAndPresent(t *testing.T) {
+	t.Parallel()
 	tr := &YkmanTransport{path: "/x/ykman", run: fixedRunner(runResult{stdout: []byte("12345678\n87654321\n")})}
 	s, err := tr.Serial(context.Background())
 	require.NoError(t, err)
@@ -192,6 +223,7 @@ func TestSerialAndPresent(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestCheckVersion(t *testing.T) {
+	t.Parallel()
 	ok := &YkmanTransport{path: "/x/ykman", run: fixedRunner(runResult{stdout: []byte("5.9.2")})}
 	assert.NoError(t, ok.checkVersion(context.Background()))
 
@@ -206,6 +238,7 @@ func TestCheckVersion(t *testing.T) {
 }
 
 func TestResolveToolPath(t *testing.T) {
+	t.Parallel()
 	// A real, resolvable binary present on both darwin and linux.
 	abs, err := resolveToolPath("/bin/sh")
 	require.NoError(t, err)
@@ -215,7 +248,36 @@ func TestResolveToolPath(t *testing.T) {
 	assert.ErrorIs(t, err, ErrToolNotFound)
 }
 
+func TestResolveToolPath_EmptyDefaultsToYkman(t *testing.T) {
+	t.Parallel()
+	// "" defaults to the bare name "ykman"; whether or not it resolves on this
+	// host, the empty-path default branch is exercised.
+	if _, err := resolveToolPath(""); err != nil {
+		assert.ErrorIs(t, err, ErrToolNotFound)
+	}
+}
+
+func TestIsHex40(t *testing.T) {
+	t.Parallel()
+	assert.True(t, isHex40([]byte("0123456789abcdefABCDEF0123456789abcdef01")))
+	assert.False(t, isHex40([]byte("short")))
+
+	// Exactly 40 characters but containing a non-hex byte.
+	bad := []byte("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz")
+	require.Len(t, bad, responseHexLen)
+	assert.False(t, isHex40(bad))
+}
+
+func TestSerial_ToolError(t *testing.T) {
+	t.Parallel()
+	tr := &YkmanTransport{path: "/x/ykman", run: fixedRunner(runResult{err: errBoom(), stderr: []byte("No YubiKey detected")})}
+	_, err := tr.Serial(context.Background())
+	assert.ErrorIs(t, err, ErrNoDevice)
+	assert.False(t, tr.Present(context.Background()))
+}
+
 func TestNewYkmanTransport_FullFlow(t *testing.T) {
+	t.Parallel()
 	// Use /bin/sh as a stand-in resolvable binary; the injected runner
 	// supplies a satisfactory version so construction succeeds.
 	tr, err := NewYkmanTransport("/bin/sh", withRunner(fixedRunner(runResult{stdout: []byte("5.9.2")})))
@@ -234,6 +296,7 @@ func errBoom() error { return &exec.ExitError{} }
 // TestDefaultRunner exercises the real exec-backed runner against portable
 // binaries so the production command path is covered without ykman.
 func TestDefaultRunner(t *testing.T) {
+	t.Parallel()
 	// Success path: /bin/echo prints its argument to stdout.
 	res := defaultRunner(context.Background(), "/bin/echo", []string{"hello"})
 	require.NoError(t, res.err)
