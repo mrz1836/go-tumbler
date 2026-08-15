@@ -4,10 +4,11 @@ import (
 	"context"
 	"testing"
 
-	tumbler "github.com/mrz1836/go-tumbler"
-	"github.com/mrz1836/go-tumbler/transport"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	tumbler "github.com/mrz1836/go-tumbler"
+	"github.com/mrz1836/go-tumbler/transport"
 )
 
 // ykSecret is a fixed 20-byte HMAC-SHA1 secret (real YubiKey CR secret size).
@@ -20,6 +21,7 @@ func newFake() *transport.FakeTransport { return transport.NewFakeTransport(2, y
 // ---------------------------------------------------------------------------
 
 func TestYubiKeyOnly_RoundTrip(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, want := makeDEK(t, 32)
 	fake := newFake()
@@ -51,6 +53,7 @@ func TestYubiKeyOnly_RoundTrip(t *testing.T) {
 }
 
 func TestYubiKey_TouchAnnounce_FiresRightBeforeTouch(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, _ := makeDEK(t, 32)
 	fake := newFake()
@@ -75,6 +78,7 @@ func TestYubiKey_TouchAnnounce_FiresRightBeforeTouch(t *testing.T) {
 }
 
 func TestYubiKeyOnly_WrongKey_AuthFailed(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, _ := makeDEK(t, 32)
 	env, err := tumbler.NewEnvelope(ctx, dek, tumbler.PolicyYubiKeyOnly,
@@ -92,6 +96,7 @@ func TestYubiKeyOnly_WrongKey_AuthFailed(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func Test2FA_RoundTrip(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, want := makeDEK(t, 64)
 	fake := newFake()
@@ -123,6 +128,7 @@ func Test2FA_RoundTrip(t *testing.T) {
 }
 
 func Test2FA_WrongPassword_AuthFailed(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, _ := makeDEK(t, 32)
 	fake := newFake()
@@ -139,6 +145,7 @@ func Test2FA_WrongPassword_AuthFailed(t *testing.T) {
 }
 
 func Test2FA_RequiresKDF(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, _ := makeDEK(t, 32)
 	pw := newSecret(t, []byte("pw"))
@@ -153,6 +160,7 @@ func Test2FA_RequiresKDF(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestYubiKey_TouchTimeout_Surfaces(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, _ := makeDEK(t, 32)
 	fake := newFake()
@@ -167,6 +175,7 @@ func TestYubiKey_TouchTimeout_Surfaces(t *testing.T) {
 }
 
 func TestYubiKey_NoDevice_Surfaces(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, _ := makeDEK(t, 32)
 	fake := newFake()
@@ -180,6 +189,7 @@ func TestYubiKey_NoDevice_Surfaces(t *testing.T) {
 }
 
 func TestYubiKey_EnrollTouchTimeout(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, _ := makeDEK(t, 32)
 	fake := newFake()
@@ -190,6 +200,7 @@ func TestYubiKey_EnrollTouchTimeout(t *testing.T) {
 }
 
 func TestYubiKey_InvalidSlot(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, _ := makeDEK(t, 32)
 	_, err := tumbler.NewYubiKeyMethod(newFake(), tumbler.YubiKeyConfig{Slot: 5}, nil).Enroll(ctx, dek)
@@ -201,6 +212,7 @@ func TestYubiKey_InvalidSlot(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestYubiKey_BackupKey_BothUnlock(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, want := makeDEK(t, 32)
 	primary := newFake()
@@ -225,6 +237,7 @@ func TestYubiKey_BackupKey_BothUnlock(t *testing.T) {
 // calls for: every policy, both KDFs, with recovery and backup slots, through
 // marshal/parse, all via FakeTransport (no hardware).
 func TestMatrix_AllPoliciesAllKDFs(t *testing.T) {
+	t.Parallel()
 	kdfs := map[string]func() tumbler.KDF{"scrypt": cheapScrypt, "argon2": cheapArgon}
 	for kdfName, kdf := range kdfs {
 		t.Run(kdfName, func(t *testing.T) {
@@ -235,13 +248,13 @@ func TestMatrix_AllPoliciesAllKDFs(t *testing.T) {
 			})
 			t.Run("yubikey-only", func(t *testing.T) {
 				fake := newFake()
-				roundTripFake(t, fake, tumbler.PolicyYubiKeyOnly, func(string) tumbler.Method {
+				roundTrip(t, tumbler.PolicyYubiKeyOnly, func(string) tumbler.Method {
 					return tumbler.NewYubiKeyMethod(fake, tumbler.YubiKeyConfig{Slot: 2}, nil)
 				})
 			})
 			t.Run("password-and-yubikey", func(t *testing.T) {
 				fake := newFake()
-				roundTripFake(t, fake, tumbler.PolicyPasswordAndYubiKey, func(pw string) tumbler.Method {
+				roundTrip(t, tumbler.PolicyPasswordAndYubiKey, func(pw string) tumbler.Method {
 					return tumbler.NewYubiKeyMethod(fake, tumbler.YubiKeyConfig{Slot: 2, KDF: kdf()}, newSecret(t, []byte(pw)))
 				})
 			})
@@ -252,11 +265,6 @@ func TestMatrix_AllPoliciesAllKDFs(t *testing.T) {
 // roundTrip enrolls with the primary method builder, adds a recovery slot,
 // marshals, parses, and unlocks via the primary factor and the recovery code.
 func roundTrip(t *testing.T, policy tumbler.Policy, build func(pw string) tumbler.Method) {
-	t.Helper()
-	roundTripFake(t, nil, policy, build)
-}
-
-func roundTripFake(t *testing.T, _ *transport.FakeTransport, policy tumbler.Policy, build func(pw string) tumbler.Method) {
 	t.Helper()
 	ctx := context.Background()
 	dek, want := makeDEK(t, 48)

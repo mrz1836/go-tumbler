@@ -4,10 +4,11 @@ import (
 	"context"
 	"testing"
 
-	tumbler "github.com/mrz1836/go-tumbler"
-	"github.com/mrz1836/go-tumbler/securebytes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	tumbler "github.com/mrz1836/go-tumbler"
+	"github.com/mrz1836/go-tumbler/securebytes"
 )
 
 // makeDEK returns a fixed, known data key for round-trip assertions.
@@ -25,6 +26,7 @@ func makeDEK(t *testing.T, n int) (*securebytes.SecureBytes, []byte) {
 // ---------------------------------------------------------------------------
 
 func TestEnvelope_PasswordOnly_RoundTrip(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, want := makeDEK(t, 32)
 	pw := newSecret(t, []byte("correct horse battery staple"))
@@ -48,6 +50,7 @@ func TestEnvelope_PasswordOnly_RoundTrip(t *testing.T) {
 }
 
 func TestEnvelope_WrongPassword_UniformAuthFailed(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, _ := makeDEK(t, 32)
 	pw := newSecret(t, []byte("the-real-password"))
@@ -63,6 +66,7 @@ func TestEnvelope_WrongPassword_UniformAuthFailed(t *testing.T) {
 }
 
 func TestEnvelope_AppSeedAsDEK_64Bytes(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, want := makeDEK(t, 64) // sigil/hush seed size
 	pw := newSecret(t, []byte("wallet-guardian"))
@@ -87,6 +91,7 @@ func TestEnvelope_AppSeedAsDEK_64Bytes(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestEnvelope_RecoveryCode_UnlocksAlongsidePassword(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, want := makeDEK(t, 32)
 	pw := newSecret(t, []byte("primary-password"))
@@ -117,6 +122,7 @@ func TestEnvelope_RecoveryCode_UnlocksAlongsidePassword(t *testing.T) {
 }
 
 func TestEnvelope_RecoveryCode_FormatParseRoundTrip(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, want := makeDEK(t, 32)
 	pw := newSecret(t, []byte("primary-password"))
@@ -146,6 +152,7 @@ func TestEnvelope_RecoveryCode_FormatParseRoundTrip(t *testing.T) {
 }
 
 func TestEnvelope_WrongRecoveryCode_AuthFailed(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, _ := makeDEK(t, 32)
 	pw := newSecret(t, []byte("primary-password"))
@@ -172,6 +179,7 @@ func TestEnvelope_WrongRecoveryCode_AuthFailed(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestNewEnvelope_PolicyMismatch(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, _ := makeDEK(t, 32)
 	pw := newSecret(t, []byte("pw"))
@@ -183,6 +191,7 @@ func TestNewEnvelope_PolicyMismatch(t *testing.T) {
 }
 
 func TestNewEnvelope_NoMethods(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, _ := makeDEK(t, 32)
 	_, err := tumbler.NewEnvelope(ctx, dek, tumbler.PolicyPasswordOnly)
@@ -190,6 +199,7 @@ func TestNewEnvelope_NoMethods(t *testing.T) {
 }
 
 func TestNewEnvelope_BadDEKSize(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	pw := newSecret(t, []byte("pw"))
 	empty, err := securebytes.NewZero(0)
@@ -201,6 +211,7 @@ func TestNewEnvelope_BadDEKSize(t *testing.T) {
 }
 
 func TestAddSlot_PolicyCoherence(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, _ := makeDEK(t, 32)
 	pw := newSecret(t, []byte("pw"))
@@ -225,6 +236,7 @@ func TestAddSlot_PolicyCoherence(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestRemoveSlot(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, want := makeDEK(t, 32)
 	pw := newSecret(t, []byte("pw"))
@@ -270,6 +282,7 @@ func TestRemoveSlot(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestMarshalParse_ByteIdenticalRoundTrip(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, _ := makeDEK(t, 48)
 	pw := newSecret(t, []byte("pw"))
@@ -299,6 +312,7 @@ func TestMarshalParse_ByteIdenticalRoundTrip(t *testing.T) {
 // Each flip must either fail to parse, fail authentication (ErrAuthFailed),
 // or — only for the advisory policy-hint byte — still yield the SAME key.
 func TestTamper_EveryByteFlip(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, want := makeDEK(t, 32)
 	pw := newSecret(t, []byte("tamper-test-pw"))
@@ -336,6 +350,7 @@ func TestTamper_EveryByteFlip(t *testing.T) {
 // disk and asserts each produces ErrAuthFailed (or a parse rejection),
 // proving the downgrade-evident property field by field.
 func TestTamper_TargetedFields(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, _ := makeDEK(t, 32)
 	pw := newSecret(t, []byte("targeted-pw"))
@@ -369,6 +384,7 @@ func TestTamper_TargetedFields(t *testing.T) {
 // TestTamper_PolicyHintIsAdvisory proves the header policy byte does not
 // drive enforcement: flipping it leaves EffectivePolicy unchanged.
 func TestTamper_PolicyHintIsAdvisory(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, _ := makeDEK(t, 32)
 	pw := newSecret(t, []byte("advisory-pw"))

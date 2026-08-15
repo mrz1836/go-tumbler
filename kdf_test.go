@@ -4,12 +4,14 @@ import (
 	"encoding/binary"
 	"testing"
 
-	tumbler "github.com/mrz1836/go-tumbler"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	tumbler "github.com/mrz1836/go-tumbler"
 )
 
 func TestArgon2id_DeterministicAndSized(t *testing.T) {
+	t.Parallel()
 	k := tumbler.NewArgon2idKDF(1, 16, 1)
 	pw := newSecret(t, []byte("passphrase-material"))
 	salt := []byte("0123456789abcdef")
@@ -28,6 +30,7 @@ func TestArgon2id_DeterministicAndSized(t *testing.T) {
 }
 
 func TestArgon2id_DifferentSaltDiffersKey(t *testing.T) {
+	t.Parallel()
 	k := tumbler.NewArgon2idKDF(1, 16, 1)
 	pw := newSecret(t, []byte("passphrase-material"))
 	a, err := k.Derive(pw, []byte("salt-aaaaaaaaaaa"))
@@ -40,6 +43,7 @@ func TestArgon2id_DifferentSaltDiffersKey(t *testing.T) {
 }
 
 func TestScrypt_DeterministicAndSized(t *testing.T) {
+	t.Parallel()
 	k := tumbler.NewScryptKDF(8, 8, 1)
 	pw := newSecret(t, []byte("passphrase-material"))
 	salt := []byte("0123456789abcdef")
@@ -52,6 +56,7 @@ func TestScrypt_DeterministicAndSized(t *testing.T) {
 }
 
 func TestKDF_MarshalParams_RoundTripThroughParse(t *testing.T) {
+	t.Parallel()
 	t.Run("argon2", func(t *testing.T) {
 		k := tumbler.NewArgon2idKDF(4, 256*1024, 4) // hush production params
 		got, err := tumbler.ParseKDFForTest(k.ID(), k.MarshalParams())
@@ -69,6 +74,7 @@ func TestKDF_MarshalParams_RoundTripThroughParse(t *testing.T) {
 }
 
 func TestParseKDF_None(t *testing.T) {
+	t.Parallel()
 	k, err := tumbler.ParseKDFForTest(tumbler.KDFNone, nil)
 	require.NoError(t, err)
 	assert.Nil(t, k)
@@ -78,6 +84,7 @@ func TestParseKDF_None(t *testing.T) {
 }
 
 func TestParseKDF_UnknownID(t *testing.T) {
+	t.Parallel()
 	_, err := tumbler.ParseKDFForTest(tumbler.KDFID(99), []byte{1, 2, 3})
 	assert.ErrorIs(t, err, tumbler.ErrUnsupportedKDF)
 }
@@ -101,6 +108,7 @@ func scryptParams(logN uint8, r, p uint32) []byte {
 }
 
 func TestParseKDF_Argon2Bounds(t *testing.T) {
+	t.Parallel()
 	cases := map[string][]byte{
 		"wrong length":    {1, 2, 3},
 		"time zero":       argonParams(0, 1024, 1),
@@ -122,6 +130,7 @@ func TestParseKDF_Argon2Bounds(t *testing.T) {
 }
 
 func TestParseKDF_ScryptBounds(t *testing.T) {
+	t.Parallel()
 	cases := map[string][]byte{
 		"wrong length":   {1, 2, 3},
 		"logN zero":      scryptParams(0, 8, 1),

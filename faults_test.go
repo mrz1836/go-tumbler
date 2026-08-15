@@ -5,10 +5,11 @@ import (
 	"errors"
 	"testing"
 
-	tumbler "github.com/mrz1836/go-tumbler"
-	"github.com/mrz1836/go-tumbler/securebytes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	tumbler "github.com/mrz1836/go-tumbler"
+	"github.com/mrz1836/go-tumbler/securebytes"
 )
 
 // failRand is a RNG source that succeeds `ok` times, then errors.

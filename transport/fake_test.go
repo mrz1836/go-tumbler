@@ -5,12 +5,14 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/mrz1836/go-tumbler/transport"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mrz1836/go-tumbler/transport"
 )
 
 func TestFake_Deterministic(t *testing.T) {
+	t.Parallel()
 	f := transport.NewFakeTransport(2, []byte("secret"))
 	a, err := f.ChallengeResponse(context.Background(), 2, []byte("chal"))
 	require.NoError(t, err)
@@ -28,6 +30,7 @@ func TestFake_Deterministic(t *testing.T) {
 }
 
 func TestFake_TouchFnError(t *testing.T) {
+	t.Parallel()
 	f := transport.NewFakeTransport(2, []byte("secret"))
 	f.TouchFn = func() error { return transport.ErrTouchTimeout }
 	_, err := f.ChallengeResponse(context.Background(), 2, []byte("chal"))
@@ -35,6 +38,7 @@ func TestFake_TouchFnError(t *testing.T) {
 }
 
 func TestFake_ErrInject(t *testing.T) {
+	t.Parallel()
 	f := transport.NewFakeTransport(2, []byte("secret"))
 	sentinel := errors.New("injected")
 	f.ErrInject = sentinel
@@ -43,6 +47,7 @@ func TestFake_ErrInject(t *testing.T) {
 }
 
 func TestFake_UnconfiguredSlot(t *testing.T) {
+	t.Parallel()
 	f := transport.NewFakeTransport(2, []byte("secret"))
 	_, err := f.ChallengeResponse(context.Background(), 1, []byte("chal"))
 	assert.ErrorIs(t, err, transport.ErrSlotNotConfigured)
@@ -51,6 +56,7 @@ func TestFake_UnconfiguredSlot(t *testing.T) {
 }
 
 func TestFake_ContextCancelled(t *testing.T) {
+	t.Parallel()
 	f := transport.NewFakeTransport(2, []byte("secret"))
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -59,6 +65,7 @@ func TestFake_ContextCancelled(t *testing.T) {
 }
 
 func TestFake_SetSlotSerialPresent(t *testing.T) {
+	t.Parallel()
 	f := transport.NewFakeTransport(2, []byte("secret"))
 	f.SetSlot(1, []byte("other"))
 	_, err := f.ChallengeResponse(context.Background(), 1, []byte("chal"))
@@ -75,6 +82,7 @@ func TestFake_SetSlotSerialPresent(t *testing.T) {
 }
 
 func TestPIVStub(t *testing.T) {
+	t.Parallel()
 	p := &transport.PIVTransport{Slot: 0x9d}
 	_, err := p.Decipher(context.Background(), []byte("1234"), []byte("ct"))
 	assert.ErrorIs(t, err, transport.ErrNotImplemented)

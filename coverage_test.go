@@ -4,9 +4,10 @@ import (
 	"context"
 	"testing"
 
-	tumbler "github.com/mrz1836/go-tumbler"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	tumbler "github.com/mrz1836/go-tumbler"
 )
 
 // These tests exercise the defensive error branches that only fire when a
@@ -14,6 +15,7 @@ import (
 // cases — the paths normal round-trips cannot reach.
 
 func TestSeal_DestroyedKEK(t *testing.T) {
+	t.Parallel()
 	kek := newSecret(t, make32(0x01))
 	require.NoError(t, kek.Destroy())
 	dek := newSecret(t, []byte("payload"))
@@ -22,6 +24,7 @@ func TestSeal_DestroyedKEK(t *testing.T) {
 }
 
 func TestSeal_DestroyedDEK(t *testing.T) {
+	t.Parallel()
 	kek := newSecret(t, make32(0x01))
 	dek := newSecret(t, []byte("payload"))
 	require.NoError(t, dek.Destroy())
@@ -30,6 +33,7 @@ func TestSeal_DestroyedDEK(t *testing.T) {
 }
 
 func TestOpen_DestroyedKEK(t *testing.T) {
+	t.Parallel()
 	kek := newSecret(t, make32(0x02))
 	dek := newSecret(t, []byte("payload"))
 	ct, err := tumbler.SealForTest(kek, dek, make([]byte, 12), nil)
@@ -41,6 +45,7 @@ func TestOpen_DestroyedKEK(t *testing.T) {
 }
 
 func TestKDFDerive_DestroyedPassword(t *testing.T) {
+	t.Parallel()
 	pw := newSecret(t, []byte("pw"))
 	require.NoError(t, pw.Destroy())
 	_, err := cheapScrypt().Derive(pw, make([]byte, 16))
@@ -50,6 +55,7 @@ func TestKDFDerive_DestroyedPassword(t *testing.T) {
 }
 
 func TestBuildIKM_DestroyedRole(t *testing.T) {
+	t.Parallel()
 	yr := newSecret(t, []byte("response"))
 	require.NoError(t, yr.Destroy())
 	_, err := tumbler.BuildIKMForTest(nil, yr, nil)
@@ -57,6 +63,7 @@ func TestBuildIKM_DestroyedRole(t *testing.T) {
 }
 
 func TestDeriveKEK_DestroyedPassword(t *testing.T) {
+	t.Parallel()
 	pk := newSecret(t, make32(0x03))
 	require.NoError(t, pk.Destroy())
 	_, err := tumbler.DeriveKEKForTest(pk, nil, nil, make([]byte, 16), 1, tumbler.MethodPassword, [8]byte{})
@@ -64,6 +71,7 @@ func TestDeriveKEK_DestroyedPassword(t *testing.T) {
 }
 
 func TestPasswordEnroll_DestroyedPassword(t *testing.T) {
+	t.Parallel()
 	dek, _ := makeDEK(t, 32)
 	pw := newSecret(t, []byte("pw"))
 	require.NoError(t, pw.Destroy())
@@ -72,6 +80,7 @@ func TestPasswordEnroll_DestroyedPassword(t *testing.T) {
 }
 
 func TestPasswordUnlock_DestroyedPassword(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, _ := makeDEK(t, 32)
 	pw := newSecret(t, []byte("pw"))
@@ -86,6 +95,7 @@ func TestPasswordUnlock_DestroyedPassword(t *testing.T) {
 }
 
 func TestFormatRecoveryCode_Destroyed(t *testing.T) {
+	t.Parallel()
 	code, err := tumbler.GenerateRecoveryCode()
 	require.NoError(t, err)
 	require.NoError(t, code.Destroy())
@@ -94,6 +104,7 @@ func TestFormatRecoveryCode_Destroyed(t *testing.T) {
 }
 
 func TestAddSlot_BadDEKSize(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, _ := makeDEK(t, 32)
 	pw := newSecret(t, []byte("pw"))
@@ -111,6 +122,7 @@ func TestAddSlot_BadDEKSize(t *testing.T) {
 }
 
 func TestEffectivePolicy_MixedPrimary_Invalid(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, _ := makeDEK(t, 32)
 	pw := newSecret(t, []byte("pw"))
@@ -130,6 +142,7 @@ func TestEffectivePolicy_MixedPrimary_Invalid(t *testing.T) {
 }
 
 func TestRecoveryUnlock_ContextCancelled(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, _ := makeDEK(t, 32)
 	pw := newSecret(t, []byte("pw"))
@@ -148,6 +161,7 @@ func TestRecoveryUnlock_ContextCancelled(t *testing.T) {
 }
 
 func TestPasswordUnlock_MissingKDFInSlot(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, _ := makeDEK(t, 32)
 	pw := newSecret(t, []byte("pw"))
@@ -164,6 +178,7 @@ func TestPasswordUnlock_MissingKDFInSlot(t *testing.T) {
 }
 
 func Test2FAUnlock_MissingKDFInSlot(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, _ := makeDEK(t, 32)
 	fake := newFake()
@@ -181,6 +196,7 @@ func Test2FAUnlock_MissingKDFInSlot(t *testing.T) {
 }
 
 func TestYubiKeyUnlock_InvalidStoredSlot(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, _ := makeDEK(t, 32)
 	fake := newFake()

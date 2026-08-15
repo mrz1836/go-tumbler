@@ -4,13 +4,15 @@ import (
 	"context"
 	"testing"
 
-	tumbler "github.com/mrz1836/go-tumbler"
-	"github.com/mrz1836/go-tumbler/transport"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	tumbler "github.com/mrz1836/go-tumbler"
+	"github.com/mrz1836/go-tumbler/transport"
 )
 
 func TestValidateSafety_SingleSlotYubiKeyOnly_HardUnsafe(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, _ := makeDEK(t, 32)
 	fake := transport.NewFakeTransport(2, ykSecret)
@@ -31,6 +33,7 @@ func TestValidateSafety_SingleSlotYubiKeyOnly_HardUnsafe(t *testing.T) {
 }
 
 func TestValidateSafety_PasswordOnly_WarnsNoBackupNoRecovery(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, _ := makeDEK(t, 32)
 	pw := newSecret(t, []byte("pw"))
@@ -47,6 +50,7 @@ func TestValidateSafety_PasswordOnly_WarnsNoBackupNoRecovery(t *testing.T) {
 }
 
 func TestValidateSafety_TwoFactorWithRecovery_Clean(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	dek, _ := makeDEK(t, 32)
 	fake := transport.NewFakeTransport(2, ykSecret)

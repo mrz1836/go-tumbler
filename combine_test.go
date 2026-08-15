@@ -7,10 +7,11 @@ import (
 	"encoding/hex"
 	"testing"
 
-	tumbler "github.com/mrz1836/go-tumbler"
-	"github.com/mrz1836/go-tumbler/securebytes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	tumbler "github.com/mrz1836/go-tumbler"
+	"github.com/mrz1836/go-tumbler/securebytes"
 )
 
 // copyOut borrows a SecureBytes and returns a plain copy for comparison.
@@ -26,6 +27,7 @@ func copyOut(t *testing.T, sb *securebytes.SecureBytes) []byte {
 // ---------------------------------------------------------------------------
 
 func TestBuildIKM_RolesAreUnambiguous(t *testing.T) {
+	t.Parallel()
 	same := []byte("identical-secret-bytes-32-xxxxxx")
 
 	pwOnly, err := tumbler.BuildIKMForTest(newSecret(t, same), nil, nil)
@@ -59,6 +61,7 @@ func TestBuildIKM_RolesAreUnambiguous(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestDeriveKEK_MatchesSpec(t *testing.T) {
+	t.Parallel()
 	pkBytes := []byte("password-key-0123456789abcdef012")
 	hkdfSalt := make([]byte, 16)
 	for i := range hkdfSalt {
@@ -92,6 +95,7 @@ func TestDeriveKEK_MatchesSpec(t *testing.T) {
 // TestDeriveKEK_FrozenKAT pins the derivation so an accidental change to the
 // IKM layout, labels, or HKDF wiring is caught immediately.
 func TestDeriveKEK_FrozenKAT(t *testing.T) {
+	t.Parallel()
 	pk := make([]byte, 32) // all-zero pk
 	salt := make([]byte, 16)
 	for i := range salt {
@@ -115,6 +119,7 @@ func TestDeriveKEK_FrozenKAT(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestSealOpen_RoundTrip(t *testing.T) {
+	t.Parallel()
 	kek := newSecret(t, make32(0x11))
 	dekBytes := []byte("the-data-key-payload-0123456789!")
 	dek := newSecret(t, dekBytes)
@@ -132,6 +137,7 @@ func TestSealOpen_RoundTrip(t *testing.T) {
 }
 
 func TestSealOpen_TamperedAAD(t *testing.T) {
+	t.Parallel()
 	kek := newSecret(t, make32(0x22))
 	dek := newSecret(t, []byte("payload"))
 	nonce := make([]byte, 12)
@@ -144,6 +150,7 @@ func TestSealOpen_TamperedAAD(t *testing.T) {
 }
 
 func TestSealOpen_TamperedCiphertext(t *testing.T) {
+	t.Parallel()
 	kek := newSecret(t, make32(0x33))
 	dek := newSecret(t, []byte("payload-xyz"))
 	nonce := make([]byte, 12)
@@ -158,6 +165,7 @@ func TestSealOpen_TamperedCiphertext(t *testing.T) {
 }
 
 func TestSealOpen_WrongKEK(t *testing.T) {
+	t.Parallel()
 	dek := newSecret(t, []byte("payload"))
 	nonce := make([]byte, 12)
 	aad := []byte("aad")

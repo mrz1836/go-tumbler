@@ -5,13 +5,15 @@ import (
 	"strings"
 	"testing"
 
-	tumbler "github.com/mrz1836/go-tumbler"
-	"github.com/mrz1836/go-tumbler/securebytes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	tumbler "github.com/mrz1836/go-tumbler"
+	"github.com/mrz1836/go-tumbler/securebytes"
 )
 
 func TestGenerateRecoveryCode_Length(t *testing.T) {
+	t.Parallel()
 	code, err := tumbler.GenerateRecoveryCode()
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = code.Destroy() })
@@ -19,6 +21,7 @@ func TestGenerateRecoveryCode_Length(t *testing.T) {
 }
 
 func TestRecoveryCode_FormatParse_RoundTrip(t *testing.T) {
+	t.Parallel()
 	code, err := tumbler.GenerateRecoveryCode()
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = code.Destroy() })
@@ -40,6 +43,7 @@ func TestRecoveryCode_FormatParse_RoundTrip(t *testing.T) {
 }
 
 func TestParseRecoveryCode_Invalid(t *testing.T) {
+	t.Parallel()
 	// Too short (decodes to fewer than 32 bytes).
 	_, err := tumbler.ParseRecoveryCode("ABCDEF")
 	assert.ErrorIs(t, err, tumbler.ErrInvalidRecoveryCode)
@@ -55,6 +59,7 @@ func TestParseRecoveryCode_Invalid(t *testing.T) {
 }
 
 func TestRecoveryMethod_WrongLengthCode_Rejected(t *testing.T) {
+	t.Parallel()
 	// A code that is not exactly RecoveryCodeLen must be rejected at enroll.
 	short, err := securebytes.New([]byte("too-short"))
 	require.NoError(t, err)

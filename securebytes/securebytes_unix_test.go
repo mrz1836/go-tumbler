@@ -6,9 +6,10 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/mrz1836/go-tumbler/securebytes"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/unix"
+
+	"github.com/mrz1836/go-tumbler/securebytes"
 )
 
 func TestRaiseMemlockLimit_GetrlimitError(t *testing.T) {

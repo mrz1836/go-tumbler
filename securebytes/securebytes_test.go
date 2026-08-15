@@ -10,9 +10,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/mrz1836/go-tumbler/securebytes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/mrz1836/go-tumbler/securebytes"
 )
 
 // ---------------------------------------------------------------------------

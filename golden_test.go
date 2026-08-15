@@ -6,9 +6,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	tumbler "github.com/mrz1836/go-tumbler"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	tumbler "github.com/mrz1836/go-tumbler"
 )
 
 // goldenPassword is the fixed password baked into the v1 golden envelope.

@@ -3,9 +3,10 @@ package tumbler_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	tumbler "github.com/mrz1836/go-tumbler"
 	"github.com/mrz1836/go-tumbler/securebytes"
-	"github.com/stretchr/testify/require"
 )
 
 // newSecret builds a SecureBytes from a COPY of b so the caller keeps b for
