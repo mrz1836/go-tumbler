@@ -6,8 +6,9 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/mrz1836/go-tumbler/securebytes"
 	"golang.org/x/crypto/chacha20poly1305"
+
+	"github.com/mrz1836/go-tumbler/securebytes"
 )
 
 // Domain-separation labels. Every one is prefixed "tumbler/v1 " so a future
@@ -94,6 +95,19 @@ func buildIKM(in ikmInputs) (*securebytes.SecureBytes, error) {
 	return ikm, nil
 }
 
+// hkdfSHA256ExtractExpand runs the two-step HKDF-SHA256 that both the KEK and
+// the 2FA challenge derivation share: PRK = Extract(salt, ikm); out =
+// Expand(PRK, info, length). The transient PRK is zeroed before return; the
+// caller owns the returned bytes and must zero them.
+func hkdfSHA256ExtractExpand(ikm, salt []byte, info string, length int) ([]byte, error) {
+	prk, err := hkdf.Extract(sha256.New, ikm, salt)
+	if err != nil {
+		return nil, err
+	}
+	defer zero(prk)
+	return hkdf.Expand(sha256.New, prk, info, length)
+}
+
 // deriveKEK combines the IKM into a 32-byte key-encryption key using
 // HKDF-SHA256: PRK = Extract(hkdfSalt, IKM); KEK = Expand(PRK, info), where
 // info = labelKEK || version || methodType || slotID. The KEK is returned in
@@ -117,14 +131,7 @@ func deriveKEK(in ikmInputs, hkdfSalt []byte, version uint8, mt MethodType, slot
 		kekErr error
 	)
 	if useErr := ikm.Use(func(ikmBytes []byte) {
-		prk, e := hkdf.Extract(sha256.New, ikmBytes, hkdfSalt)
-		if e != nil {
-			kekErr = e
-			return
-		}
-		defer zero(prk)
-
-		raw, e := hkdf.Expand(sha256.New, prk, string(info), chacha20poly1305.KeySize)
+		raw, e := hkdfSHA256ExtractExpand(ikmBytes, hkdfSalt, string(info), chacha20poly1305.KeySize)
 		if e != nil {
 			kekErr = e
 			return

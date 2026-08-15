@@ -61,20 +61,32 @@ func (m *PasswordMethod) Unlock(ctx context.Context, slot Slot) (*securebytes.Se
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	pk, err := derivePasswordKey(slot, m.password, "password")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = pk.Destroy() }()
+
+	return unwrapDEK(slot, ikmInputs{password: pk})
+}
+
+// derivePasswordKey reconstructs the password key from a slot's stored KDF id,
+// parameters, and salt — the shared front of PasswordMethod.Unlock and
+// YubiKeyMethod.unlock2FA. A slot whose type demands a KDF but carries KDFNone
+// is malformed (parse rejects this; the nil-check guards in-memory-constructed
+// slots). name tags the error chain ("password" / "2fa"). The returned key is
+// owned by the caller and must be Destroyed.
+func derivePasswordKey(slot Slot, password *securebytes.SecureBytes, name string) (*securebytes.SecureBytes, error) {
 	kdf, err := parseKDF(slot.KDFID, slot.KDFParams)
 	if err != nil {
 		return nil, err
 	}
 	if kdf == nil {
-		// A password slot without a KDF is malformed (parse rejects this;
-		// guard defensively for in-memory-constructed slots).
-		return nil, fmt.Errorf("%w: password slot missing KDF", ErrMalformed)
+		return nil, fmt.Errorf("%w: %s slot missing KDF", ErrMalformed, name)
 	}
-	pk, err := kdf.Derive(m.password, slot.KDFSalt)
+	pk, err := kdf.Derive(password, slot.KDFSalt)
 	if err != nil {
-		return nil, fmt.Errorf("tumbler: password derive: %w", err)
+		return nil, fmt.Errorf("tumbler: %s derive: %w", name, err)
 	}
-	defer func() { _ = pk.Destroy() }()
-
-	return unwrapDEK(slot, ikmInputs{password: pk})
+	return pk, nil
 }

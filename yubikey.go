@@ -2,8 +2,6 @@ package tumbler
 
 import (
 	"context"
-	"crypto/hkdf"
-	"crypto/sha256"
 	"fmt"
 
 	"github.com/mrz1836/go-tumbler/securebytes"
@@ -173,16 +171,9 @@ func (m *YubiKeyMethod) unlockYubiOnly(ctx context.Context, slot Slot) (*secureb
 }
 
 func (m *YubiKeyMethod) unlock2FA(ctx context.Context, slot Slot) (*securebytes.SecureBytes, error) {
-	kdf, err := parseKDF(slot.KDFID, slot.KDFParams)
+	pk, err := derivePasswordKey(slot, m.password, "2fa")
 	if err != nil {
 		return nil, err
-	}
-	if kdf == nil {
-		return nil, fmt.Errorf("%w: 2fa slot missing KDF", ErrMalformed)
-	}
-	pk, err := kdf.Derive(m.password, slot.KDFSalt)
-	if err != nil {
-		return nil, fmt.Errorf("tumbler: 2fa derive: %w", err)
 	}
 	defer func() { _ = pk.Destroy() }()
 
@@ -212,13 +203,7 @@ func deriveChallenge(pk *securebytes.SecureBytes, chalSalt []byte) ([]byte, erro
 		outErr error
 	)
 	if useErr := pk.Use(func(pkb []byte) {
-		prk, e := hkdf.Extract(sha256.New, pkb, chalSalt)
-		if e != nil {
-			outErr = e
-			return
-		}
-		defer zero(prk)
-		out, outErr = hkdf.Expand(sha256.New, prk, labelChallenge, yubiChallengeLen)
+		out, outErr = hkdfSHA256ExtractExpand(pkb, chalSalt, labelChallenge, yubiChallengeLen)
 	}); useErr != nil {
 		return nil, fmt.Errorf("tumbler: derive challenge: %w", useErr)
 	}

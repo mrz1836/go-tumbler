@@ -4,9 +4,10 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/mrz1836/go-tumbler/securebytes"
 	"golang.org/x/crypto/argon2"
 	"golang.org/x/crypto/scrypt"
+
+	"github.com/mrz1836/go-tumbler/securebytes"
 )
 
 // pkLen is the length of a derived password key (pk). 32 bytes is ample: pk
@@ -20,7 +21,11 @@ const defaultSaltLen = 16
 // KDF-parameter safety bounds enforced by parseKDF BEFORE any derivation, so
 // a tampered file cannot trigger a multi-gigabyte allocation. Legitimate
 // parameters (hush: Argon2id m=256 MiB; sigil: scrypt logN=18) sit well
-// inside these ceilings.
+// inside these ceilings. These ceilings bound the cost of a SINGLE unlock
+// attempt: a hostile envelope can still force up to this much work per
+// user-initiated attempt (bounded, not unbounded). The reverse is safe — the
+// parameters are AEAD-authenticated, so an attacker cannot LOWER a legitimate
+// slot's cost without breaking its tag.
 const (
 	maxKDFMemBytes = 2 * 1024 * 1024 * 1024 // 2 GiB working-memory ceiling
 
@@ -87,21 +92,9 @@ func (k *Argon2idKDF) MarshalParams() []byte {
 
 // Derive implements KDF.
 func (k *Argon2idKDF) Derive(password *securebytes.SecureBytes, salt []byte) (*securebytes.SecureBytes, error) {
-	var (
-		out    *securebytes.SecureBytes
-		outErr error
-	)
-	if useErr := password.Use(func(pw []byte) {
-		raw := argon2.IDKey(pw, salt, k.time, k.memoryKiB, k.threads, pkLen)
-		defer zero(raw)
-		out, outErr = sbNew(raw)
-	}); useErr != nil {
-		return nil, fmt.Errorf("tumbler: argon2 password use: %w", useErr)
-	}
-	if outErr != nil {
-		return nil, fmt.Errorf("tumbler: argon2 derive: %w", outErr)
-	}
-	return out, nil
+	return deriveWithStretch(password, "argon2", func(pw []byte) ([]byte, error) {
+		return argon2.IDKey(pw, salt, k.time, k.memoryKiB, k.threads, pkLen), nil
+	})
 }
 
 // ---------------------------------------------------------------------------
@@ -139,13 +132,22 @@ func (k *ScryptKDF) MarshalParams() []byte {
 
 // Derive implements KDF.
 func (k *ScryptKDF) Derive(password *securebytes.SecureBytes, salt []byte) (*securebytes.SecureBytes, error) {
-	n := 1 << k.logN
+	return deriveWithStretch(password, "scrypt", func(pw []byte) ([]byte, error) {
+		return scrypt.Key(pw, salt, 1<<k.logN, int(k.r), int(k.p), pkLen)
+	})
+}
+
+// deriveWithStretch is the shared body of the built-in KDFs' Derive: it runs a
+// password-stretching function over the borrowed password bytes, zeroes the raw
+// stretched output, and returns it wrapped in a fresh SecureBytes the caller
+// must Destroy. name tags the error chain ("argon2" / "scrypt").
+func deriveWithStretch(password *securebytes.SecureBytes, name string, stretch func(pw []byte) ([]byte, error)) (*securebytes.SecureBytes, error) {
 	var (
 		out    *securebytes.SecureBytes
 		outErr error
 	)
 	if useErr := password.Use(func(pw []byte) {
-		raw, e := scrypt.Key(pw, salt, n, int(k.r), int(k.p), pkLen)
+		raw, e := stretch(pw)
 		if e != nil {
 			outErr = e
 			return
@@ -153,10 +155,10 @@ func (k *ScryptKDF) Derive(password *securebytes.SecureBytes, salt []byte) (*sec
 		defer zero(raw)
 		out, outErr = sbNew(raw)
 	}); useErr != nil {
-		return nil, fmt.Errorf("tumbler: scrypt password use: %w", useErr)
+		return nil, fmt.Errorf("tumbler: %s password use: %w", name, useErr)
 	}
 	if outErr != nil {
-		return nil, fmt.Errorf("tumbler: scrypt derive: %w", outErr)
+		return nil, fmt.Errorf("tumbler: %s derive: %w", name, outErr)
 	}
 	return out, nil
 }
