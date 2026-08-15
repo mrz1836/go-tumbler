@@ -1,5 +1,4 @@
 {
-    "version": "2",
     "formatters": {
         "enable": [
             "gofmt",
@@ -31,24 +30,6 @@
         "uniq-by-line": true
     },
     "linters": {
-        "exclusions": {
-            "rules": [
-                {
-                    "path": "_test\\.go",
-                    "linters": [
-                        "err113",
-                        "gochecknoglobals",
-                        "gocognit",
-                        "gocyclo",
-                        "gosec",
-                        "containedctx",
-                        "dupl",
-                        "staticcheck",
-                        "testifylint"
-                    ]
-                }
-            ]
-        },
         "disable": [
             "funcorder",
             "goconst",
@@ -100,6 +81,24 @@
             "usestdlibvars",
             "wastedassign"
         ],
+        "exclusions": {
+            "rules": [
+                {
+                    "linters": [
+                        "err113",
+                        "gochecknoglobals",
+                        "gocognit",
+                        "gocyclo",
+                        "gosec",
+                        "containedctx",
+                        "dupl",
+                        "staticcheck",
+                        "testifylint"
+                    ],
+                    "path": "_test\\.go"
+                }
+            ]
+        },
         "settings": {
             "exhaustive": {
                 "default-signifies-exhaustive": true
@@ -128,5 +127,6 @@
     "run": {
         "issues-exit-code": 1,
         "tests": true
-    }
+    },
+    "version": "2"
 }
