@@ -68,6 +68,14 @@ type SlotInfo struct {
 }
 
 // Envelope is a set of independent keyslots wrapping one data key.
+//
+// An Envelope is NOT safe for concurrent use when any goroutine mutates it
+// (AddSlot, RemoveSlot) — it carries no internal lock, matching the stdlib norm
+// for value-like containers. Concurrent read-only use (Unlock, Marshal,
+// SlotInfos, EffectivePolicy) is safe only if no goroutine is mutating. Callers
+// that share an Envelope across goroutines must serialize access themselves.
+// (The package's test-only RNG/securebytes hook globals are set once at test
+// startup and never mutated concurrently.)
 type Envelope struct {
 	version    uint8
 	policyHint Policy
@@ -173,10 +181,15 @@ func (e *Envelope) AddSlot(ctx context.Context, dek *securebytes.SecureBytes, m 
 	return nil
 }
 
-// RemoveSlot deletes the slot with the given ID. It refuses to remove the
-// only remaining slot (which would render the envelope permanently
-// unopenable). Removing a slot protects only THIS file; a possibly-compromised
-// key is truly revoked only by rotating the data key — see SECURITY.md.
+// RemoveSlot deletes the slot with the given ID. It refuses to remove the only
+// remaining slot, or the last primary (non-recovery) slot: either would leave
+// an envelope that EffectivePolicy reports as PolicyInvalid and that AddSlot
+// then refuses to re-add a primary to — an unrecoverable invariant break.
+// Recovery slots are always removable (they are the escape hatch, not the
+// policy). Callers that swap a primary (e.g. a passphrase rewrap) must add the
+// replacement BEFORE removing the old one. Removing a slot protects only THIS
+// file; a possibly-compromised key is truly revoked only by rotating the data
+// key — see SECURITY.md.
 func (e *Envelope) RemoveSlot(id [8]byte) error {
 	idx := -1
 	for i := range e.slots {
@@ -191,8 +204,23 @@ func (e *Envelope) RemoveSlot(id [8]byte) error {
 	if len(e.slots) <= 1 {
 		return fmt.Errorf("%w: cannot remove the only slot", ErrPolicyUnsafe)
 	}
+	if e.slots[idx].Type != MethodRecovery && e.primarySlotCount() <= 1 {
+		return fmt.Errorf("%w: cannot remove the last primary slot", ErrPolicyUnsafe)
+	}
 	e.slots = append(e.slots[:idx], e.slots[idx+1:]...)
 	return nil
+}
+
+// primarySlotCount returns the number of primary (non-recovery) slots. Recovery
+// slots are the escape hatch and do not count toward the policy-bearing set.
+func (e *Envelope) primarySlotCount() int {
+	n := 0
+	for i := range e.slots {
+		if e.slots[i].Type != MethodRecovery {
+			n++
+		}
+	}
+	return n
 }
 
 // EffectivePolicy derives the policy from the enrolled slots, ignoring

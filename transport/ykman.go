@@ -9,8 +9,21 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/mrz1836/go-tumbler/securebytes"
+)
+
+// Exec-hardening bounds for the ykman subprocess.
+const (
+	// versionProbeTimeout bounds the construction-time `--version` probe so a
+	// wedged binary cannot hang NewYkmanTransport indefinitely.
+	versionProbeTimeout = 10 * time.Second
+
+	// commandWaitDelay bounds the grace period exec.Cmd.Wait allows for a child
+	// to exit after its context is canceled (e.g. a touch timeout) before its
+	// I/O pipes are force-closed, so a wedged child cannot hold Wait open.
+	commandWaitDelay = 10 * time.Second
 )
 
 // minYkmanVersion is the pinned floor. Yubico ships ykman on a ~2–4 month
@@ -70,7 +83,9 @@ func NewYkmanTransport(path string, opts ...YkmanOption) (*YkmanTransport, error
 	}
 	t.path = abs
 
-	if err = t.checkVersion(context.Background()); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), versionProbeTimeout)
+	defer cancel()
+	if err = t.checkVersion(ctx); err != nil {
 		return nil, err
 	}
 	return t, nil
@@ -122,9 +137,17 @@ func (t *YkmanTransport) ChallengeResponse(ctx context.Context, slot uint8, chal
 	}
 
 	hexChal := hex.EncodeToString(challenge)
-	// Fixed argv — never a shell. The challenge is non-secret for yubi-only
-	// mode; for 2FA it is defense-in-depth-degraded but safe (the password
-	// key is also mixed directly into the KEK). See SECURITY.md.
+	// Fixed argv — never a shell. NOTE: the challenge is passed as a command
+	// argument, readable via ps / /proc/<pid>/cmdline / auditd while the process
+	// runs (and auditd/EDR may PERSIST it beyond the process). For yubikey-only
+	// mode the challenge is a stored non-secret. For 2FA the challenge is
+	// HKDF(KDF(password)): an attacker who BOTH holds the stolen envelope AND
+	// observes this argv gains an OFFLINE password verifier (recomputable from
+	// the slot's salts + KDF params), defeating the "challenge is not stored"
+	// offline-resistance property. It does NOT by itself reveal the DEK — the
+	// live YubiKey response is still required. This is an accepted v1 limitation;
+	// the real fix is the v2 PIV path (PIN over a pipe, no argv). See
+	// SECURITY.md §"Challenge in argv".
 	args := []string{"otp", "calculate", strconv.Itoa(int(slot)), hexChal}
 	res := t.run(ctx, t.path, args)
 	if res.err != nil {
@@ -281,6 +304,9 @@ func versionLess(a, b [3]int) bool {
 // defaultRunner is the production commandRunner using exec.CommandContext.
 func defaultRunner(ctx context.Context, name string, args []string) runResult {
 	cmd := exec.CommandContext(ctx, name, args...) //nolint:gosec // G204: name is an absolute, version-pinned ykman path; args are a fixed, non-shell argv
+	// Bound post-cancel cleanup: if ctx is canceled (e.g. touch timeout), don't
+	// let a wedged child hold Wait open indefinitely.
+	cmd.WaitDelay = commandWaitDelay
 	var out, errBuf bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &errBuf
