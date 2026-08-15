@@ -219,7 +219,8 @@ for _, info := range env.SlotInfos() {
     fmt.Printf("%x  %s  %s\n", info.ID, info.Type, info.Label)
 }
 
-// Revoke a slot by ID (refuses to remove the last one).
+// Revoke a slot by ID (refuses to remove the last slot, or the last
+// primary slot — swap a primary with add-before-remove).
 _ = env.RemoveSlot(slotID)
 
 // Enforce the real posture — recomputed from authenticated slot types,
@@ -325,9 +326,10 @@ Recovery slots (`MethodRecovery`) are **additive** under any policy. Enforcement
 <br/>
 
 > **Heads up!** go-tumbler is built for a small, auditable surface. Every cryptographic operation uses battle-tested, first-party packages:
-> - **crypto/chacha20poly1305, crypto/hkdf** (via `golang.org/x/crypto`) for AEAD sealing and key derivation
-> - **golang.org/x/crypto/argon2, .../scrypt** for password hardening
-> - **crypto/hmac + crypto/sha1** for the YubiKey challenge-response contract (see [SECURITY.md](SECURITY.md#why-hmac-sha1-is-safe-here))
+> - **`crypto/hkdf` + `crypto/sha256`** (Go standard library) for key combination and derivation
+> - **`golang.org/x/crypto/chacha20poly1305`** for AEAD sealing
+> - **`golang.org/x/crypto/argon2`, `.../scrypt`** for password hardening
+> - **`crypto/hmac` + `crypto/sha1`** for the YubiKey challenge-response contract (see [SECURITY.md](SECURITY.md#why-hmac-sha1-is-safe-here))
 
 <br/>
 
@@ -394,7 +396,7 @@ go-tumbler uses the **Fortress** workflow system for comprehensive CI/CD:
 - **fortress-test-suite.yml** — Complete test suite across multiple Go versions
 - **fortress-code-quality.yml** — Code quality checks (gofmt, golangci-lint, staticcheck)
 - **fortress-security-scans.yml** — Security vulnerability scanning (govulncheck, gitleaks)
-- **fortress-test-fuzz.yml** — Fuzz targets over the parser and combine paths
+- **fortress-test-fuzz.yml** — Fuzz targets over the envelope parser, enroll/unlock round-trip, recovery-code and KDF-parameter parsing, and the transport response/version parsers
 - **fortress-coverage.yml** — Code coverage reporting to Codecov
 - **fortress-release.yml** — Automated releases via GoReleaser
 
@@ -442,7 +444,7 @@ View the coverage report:
 magex test:coverage
 ```
 
-Coverage is automatically uploaded to [Codecov](https://codecov.io/gh/mrz1836/go-tumbler) on every commit. The suite includes table/property tests, tamper and fault-injection paths, a checked-in golden wire-format fixture, and fuzz targets over `ParseEnvelope` and the combine path.
+Coverage is automatically uploaded to [Codecov](https://codecov.io/gh/mrz1836/go-tumbler) on every commit. The suite includes table/property tests, tamper and fault-injection paths, adversarial-finding regressions, a checked-in golden wire-format fixture, and fuzz targets over `ParseEnvelope`, recovery-code / KDF-parameter parsing, and the transport response/version parsers. Statement coverage sits at **100%** (`securebytes`), **~98%** (core), and **~99%** (`transport`).
 
 <br/>
 

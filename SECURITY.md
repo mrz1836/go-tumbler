@@ -78,14 +78,22 @@ later without a format break.
   acceptable for the convenience tier and fine for password-only/2FA modes, but
   the safe-default validator refuses single-slot yubikey-only without `--force`.
   The genuinely strong passwordless mode is the **v2 PIV seam** below.
-- **Challenge in argv.** The `ykman` challenge is passed as a command argument.
-  For yubikey-only it is non-secret. For 2FA it is derived from the password key
-  and therefore secret; passing it in argv is a **defense-in-depth-degraded but
-  safe** exposure, because (a) the response alone is useless without the
-  password key, which is *also* mixed directly into the KEK, and (b) the
-  captured `(challenge, response)` pair cannot be replayed to derive the KEK.
-  Mitigation: restrict `/proc` visibility (`hidepid=2`), or use the v2 PIV path
-  (PIN over stdin).
+- **Challenge in argv (2FA is an offline password oracle).** The `ykman`
+  challenge is passed as a command-line argument, readable via `ps` /
+  `/proc/<pid>/cmdline` / `auditd` while the process runs — and `auditd`/EDR may
+  **persist** it beyond the process. For **yubikey-only** the challenge is a
+  stored non-secret. For **2FA** the challenge is `HKDF(KDF(password))`: an
+  attacker who **both** holds the stolen envelope **and** observes this argv
+  gains an **offline password verifier** — they can recompute the challenge from
+  the slot's salts + KDF params and confirm password guesses without the device.
+  This defeats the "challenge is not stored" offline-resistance property. It does
+  **not** by itself reveal the DEK: the live YubiKey response is still required,
+  and the password key is *also* mixed directly into the KEK, so a captured
+  `(challenge, response)` pair cannot be replayed to derive the KEK. Reaching it
+  needs the stolen file **and** argv observation, and yields only offline
+  *password* guessing. Mitigation: restrict `/proc` visibility (`hidepid=2`) and
+  argv auditing; the real fix is the **v2 PIV path** (PIN over a pipe, no argv —
+  see below).
 - **Root-level memory forensics.** `mlock` pins pages against swap but the Go
   runtime may transiently copy heap objects during GC; a determined root
   attacker doing live memory forensics is out of scope (as it is for the parent
@@ -108,10 +116,32 @@ into the KEK**. Consequences:
 
 ## v2 upgrade seam — PIV (PIN + touch)
 
-For a genuinely strong passwordless mode, a **PIV** method (`yubico-piv-tool`,
-slot `9d`, **PIN + touch**, non-extractable key in the secure element) drops in
-behind the same `Method` / `Transport` / wire-format machinery with no format
-break (`transport.PIVDecipher`, stubbed in `transport/piv.go`). **FIDO2
+> **Future milestone — NOT implemented in v1.** `transport/piv.go` carries a
+> compile-only stub (`transport.PIVDecipher`); there is no PIV unlock yet.
+
+For a genuinely strong passwordless mode, a **PIV** method (YubiKey PIV slot
+`9d`, **PIN + touch**, non-extractable **RSA-2048** key in the secure element)
+would add a factor that proves *identity* (the PIN), not just presence. The
+mechanism, grounded in what the CLIs can actually do:
+
+- **Unlock (decrypt):** `openssl pkeyutl -decrypt` driven by **`pkcs11-provider`**,
+  or **`pkcs11-tool`** (OpenSC / ykcs11). The PIN is passed **off argv AND off
+  env** via `pin-source=file:/dev/fd/N` over an anonymous pipe — never in
+  `cmdline` or `environ`. **`yubico-piv-tool` cannot perform the unlock:** its
+  `test-decipher` is a self-test that generates its own data and prints only a
+  pass/fail line, so it cannot decrypt caller ciphertext.
+- **Enroll:** `yubico-piv-tool` is the right tool for key generation, attestation
+  (`-a attest`, OID `1.3.6.1.4.1.41482.3.8`, proving non-extractability and
+  `--pin-policy always --touch-policy always`), and reading the public key; the
+  enroll-side OAEP encrypt is pure-Go `crypto/rsa`. Its PIN goes over the hidden
+  `--stdin-input`, not argv.
+
+This is **not** a drop-in behind the v1 wire format: a 256-byte RSA-OAEP
+ciphertext exceeds the current `maxChallengeLen` (64), so it needs a **new
+AAD-bound KEM-ciphertext slot field + algorithm id**, a new `MethodPIV`, and an
+**append-only, version-gated** 4th IKM role (so existing golden envelopes keep
+verifying). It also adds a heavier runtime dependency (OpenSC / `pkcs11-provider`
++ openssl) than the ykman-only posture — a deliberate tradeoff. **FIDO2
 hmac-secret** is the theoretical best but is blocked today (needs CGO and a
 community Go wrapper); revisit if Yubico ships an official Go binding.
 
@@ -132,12 +162,20 @@ on a missing recovery code, and recommends `PasswordAndYubiKey` + recovery code
 
 - Exhaustive **single-byte-flip** property test: no tamper of a valid envelope
   can ever unlock to a *different* DEK.
-- **Fuzzing**: `FuzzParseEnvelope` (never panics; parse→marshal idempotent) and
-  `FuzzEnrollUnlockRoundTrip`.
+- **Fuzzing**: `FuzzParseEnvelope` (never panics; parse→marshal idempotent),
+  `FuzzEnrollUnlockRoundTrip`, `FuzzParseRecoveryCode`, `FuzzParseKDFParams`, and
+  the transport `FuzzDecodeResponse` / `FuzzParseYkmanVersion`.
+- **Audit-finding regressions** pin the known limits: the 2FA challenge reaching
+  `ykman` argv, `RemoveSlot` refusing to strip the last primary slot, the
+  recovery-only `PolicyInvalid`-but-unlockable shape, and over-ceiling KDF
+  parameters rejected at parse.
 - **KATs** pin KEK derivation and (at hardware time) `ykman` output parsing.
 - **Golden** `testdata/` envelope proves wire-format back-compat.
 - Fault injection covers mlock/rand/transport failure paths.
-- `securebytes` at 100% statement coverage; `-race` clean.
+- Statement coverage: `securebytes` 100%, core ~98%, transport ~99%; `-race`
+  clean. The ~2% of core left uncovered is enumerated, genuinely-unreachable
+  defensive branches (e.g. stdlib HKDF / `chacha20poly1305.New` cannot error on
+  valid inputs) — see `coverage_notes_test.go`.
 
 ## Hardware-verification checklist (before hardware release)
 
@@ -146,5 +184,8 @@ hardware and the pinned `ykman` version, still verify and capture as a KAT:
 
 - exact `ykman otp calculate` flags and output shape (this build assumes
   `otp calculate <slot> <hex-challenge>` → 40 lowercase hex chars);
-- touch and touch-timeout behavior;
-- the documented `ykchalresp -2 -x <hex>` fallback transport.
+- touch and touch-timeout behavior (the runner sets `cmd.WaitDelay` and the
+  construction-time `--version` probe is bounded by `context.WithTimeout`).
+
+The transport shells out **only** to `ykman` (a fixed, non-shell argv); there is
+no alternate/fallback CLI backend in this build.

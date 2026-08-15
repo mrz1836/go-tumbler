@@ -35,10 +35,11 @@ type Transport interface {
 	Present(ctx context.Context) bool
 }
 
-// PIVDecipher is the v2 upgrade seam: a PIN+touch, non-extractable-key
-// operation on PIV slot 9d for a genuinely strong passwordless mode. It is
-// declared here so the wire format and method machinery can accommodate it
-// without a break; transport/piv.go carries a stub implementation.
+// PIVDecipher is the (future, unimplemented) v2 upgrade seam: a PIN+touch,
+// non-extractable-key RSA-OAEP decrypt on PIV slot 9d for a genuinely strong
+// passwordless mode. It is declared here so callers can compile against the
+// planned seam; the full build is NOT a no-format-break drop-in — it adds a new
+// AAD-bound KEM-ciphertext slot field and a MethodPIV (see transport/piv.go).
 type PIVDecipher interface {
 	// Decipher performs a PIN- and touch-gated private-key operation in the
 	// secure element, returning the recovered key material in a SecureBytes.
