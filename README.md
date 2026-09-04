@@ -115,7 +115,7 @@ Named for a lock's **tumbler** — the mechanism whose pins must align before it
 
 ## 🚀 Installation
 
-**go-tumbler** requires a [supported release of Go](https://golang.org/doc/devel/release.html#policy) (1.25+). Add it to your module with a single command:
+**go-tumbler** requires a [supported release of Go](https://golang.org/doc/devel/release.html#policy) (1.26+). Add it to your module with a single command:
 
 ```bash
 go get github.com/mrz1836/go-tumbler
